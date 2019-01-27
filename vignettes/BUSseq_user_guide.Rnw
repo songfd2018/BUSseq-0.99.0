@@ -1,0 +1,240 @@
+%\VignetteIndexEntry{BUScorrect_user_guide}
+%\VignetteEngine{knitr::knitr}
+%\VignetteEncoding{UTF-8}
+
+\documentclass[12pt]{article}
+
+<<style-knitr, eval=TRUE, echo=FALSE, results="asis">>=
+BiocStyle::latex()
+@
+
+  \geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+
+
+
+\title{BUSseq: Batch Effects Correction with Unknown Subtypes for scRNA-seq data\\ User's Guide}
+  \author{Fangda Song\thanks{\email{sfd1994895@gmail.com}}, Ga Ming Chan and Yingying Wei\\
+  The Chinese University of Hong Kong}
+  
+  \begin{document}
+  
+  \maketitle
+  
+  \tableofcontents
+  \newpage
+  
+  \section{Introduction}
+  Single-cell RNA-sequencing (scRNA-seq) technologies enable the measurement of the transcriptome of individual cells, which provides unprecedented opportunities to discover cell types and understand cellular heterogeneity \cite{Bacher2016Design}. Despite their widespread applications, single-cell RNA-sequencing (scRNA-seq) experiments are still plagued by batch effects and dropout events. \\
+  
+  One of the major tasks of scRNA-seq experiments is to identify cell types for a population of cells \cite{Bacher2016Design}. Therefore, the cell type of each individual cell is always unknown and is the target of inference. However, most existing methods for batch effects correction, such as Combat space \cite{johnson2007adjusting} and the surrogate variable analysis (SVA)(\cite{leek2007capturing}, \cite{leek2014svaseq}), are designed for bulk experiments and require knowledge of the subtype information, which corresponds to cell type information for scRNA-seq data, of each sample a priori.\\
+  
+  \noindent Here, the R package \Rpackage{BUSseq} fits an interpretable Bayesian hierarchical model---the Batch Effects Correction with Unknown Subtypes for scRNA seq Data(BUSseq)---to correct batch effects in the presence of unknown cell types \cite{xxx2019xxx}. BUSseq is able to simultaneously correct batch effects, clusters cell types, and takes care of the count data nature, the overdispersion, the dropout events, and the cell-specific sequencing depth of scRNA-seq data. After correcting the batch effects with BUSseq, the corrected value can be used for downstream analysis as if all cells were sequenced in a single batch. BUSseq can integrate the read count matrices measured from different platforms and allow cell types to be measured in some but not all of the batches as long as the experimental design fulfills the conditions listed in \cite{xxx2019xxx}.\\
+  
+  \noindent This guide provides step-by-step instructions for applying the BUSseq model to correct batch effects and identify the unknown cell type indicators for each cell for scRNA-seq data. \\          
+  
+  \section{Data Preparation}
+  \noindent The input data should be an R list with the length equal to the batch number. Each element of the list is a read count matrix, where each row represents a gene and each column corresponds to a cell. Specifically, assuming there are three batches, the R list consists of three read count matrices with genes in rows and cells in columns. In the following, we provide examples to illustrate the input formats, where \Robject{BUSseqfits\_example} is a sample \Robject{BUSseqfits} object. We use the data list stored in this object as an example.\\ 
+  
+  <<data_preparation1>>=
+  library(BUSseq)
+
+  #Input data is a list
+  CountData <- BUSseqfits_example$CountData_raw
+  class(CountData)
+  
+  #The length of the list is three, so we have three batches
+  length(CountData)
+  
+  #Each element of the list is a matrix 
+  class(CountData[[1]])
+  
+  #In the matrix, each row is a gene, and each column corresponds to a cell
+  dim(CountData[[1]])
+  dim(CountData[[2]])
+  dim(CountData[[3]])
+  
+  #Peek at the read counts
+  head(CountData[[1]][,1:4])
+  @
+    
+    \noindent The example data \Robject{CountData} consist of three batches. In total, 1,000 genes are measured. 
+  The number of cells in each batch is 150, respectively. Because it is a simulated dataset, we actually know that all of the cells come from 4 cell types.\\
+    
+    \noindent In a nutshell, the user can use the R list with length equal to the batch number as input. Note that the gene numbers of all batches need to be the same.\\ 
+  
+  
+  \section{Model Fitting}
+  \noindent Once we have prepared the input data and specified the cell type number, we are able to fit the BUSseq model, which requires the function \Rfunction{BUSseq\_MCMC}.\\
+  
+  \noindent The first argument, \Robject{ObservedData}, of \Rfunction{BUSseq\_MCMC} should be an R list where each element is a data matrix for a specific batch. In the matrix, each row corresponds to a gene or a genomic feature and each column corresponds to a cell.\\
+  
+  \noindent The second argument, \Robject{n.celltypes}, is the number of cell types among all cells, which needs to be specified by the user in advance. As discussed later, if \Robject{n.celltypes} is unknown, we can vary the cell type number and use the Bayesian Information Criterion (BIC) to select the optimal number.\\
+  
+  \noindent The third argument, \Robject{n.iterations}, is the total number of iterations of the MCMC algorithm for the posterior inference of the BUSseq model. The user can also set the number of burnin iterations by the argument, \Robject{n.burnin}. Given \Robject{n.iterations}, the default number of burnins is \Robject{n.iterations}/2 iterations. The parameters are inferred by samples after the burnin iterations. \\
+
+  \noindent The forth argument, \Robject{working\_dir}, is the user's directory to store the posterior samples. The default directory is the current directory.\\
+  
+  \noindent The fifth argument, \Robject{showIteration}, lets the user decide whether \Rfunction{BUSseq\_MCMC} displays the number of iterations that have been run. To obtain reproducible results, we highly recommend to set the argument \Robject{seed}.\\
+  
+  <<BUSgibbs>>=
+    #Conduct MCMC sampling and posterior inference for BUSseq model
+    BUSseqfits_res <- BUSseq_MCMC(ObservedData = CountData, n.celltypes = 4, 
+                      n.iterations = 500, working_dir = ".", 
+                      showIteration = TRUE, seed = 123)
+    class(BUSseqfits_res)
+  @
+    
+    \noindent  The \Rfunction{summary} command provides an overview of the output object \Robject{BUSseqfits\_res} from \Rfunction{BUSseq\_MCMC}. \Robject{BUSseqfits\_res} collects two lists of the read count matrices and all posterior estimates of parameters as well as the BIC value.
+These two lists consist of the raw observed read counts, the inferred underlying true read counts after imputing the dropout events. The posterior estimates contain the cell-type indicators for each cell, the cell-type proportions for each batch, the cell-type-specific mean expression levels, the location batch effects, the overdispersion parameters and the odds ratios of the logistic regression for dropout events.\\
+  
+  <<Summarize>>=
+    summary(BUSseqfits_res)
+  @
+    
+    \section{Estimated Cell Types, Batch and Cell-Specific Effects}
+  Our main interests are the estimation of the cell type for each cell and the estimation of the batch effects. We can call the \Rfunction{celltypes} function to extract the cell type information from \Robject{BUSseqfits\_res}.\\
+  
+  <<Celltypes>>=
+    celltyes_est <- celltypes(BUSseqfits_res)
+  @ 
+    
+    \noindent There is a message from the function \Rfunction{celltypes} to remind the user of the format of \Robject{celltyes\_est}. In this example, \Robject{celltypes\_est} is a list of length three, corresponding to the three batches in the study. 
+  \Robject{celltypes\_est[[1]]} shows the cell type for each of the 150 cells in batch one. \\
+  
+  \noindent Similarly, you can call \Rfunction{location\_batch\_effects} and \Rfunction{overdispersions} functions to get the estimated location batch effects and batch-specific gene-specific overdispersion parameters. Notice that the first batch is taken as the reference batch, so its location batch effects are zeros for all genes.\\
+  
+  <<BatchEffects>>=  
+    location_batch_effects_est <- location_batch_effects(
+                                                BUSseqfits_res)
+    head(t(location_batch_effects_est))
+    overdispersion_est <- overdispersions(BUSseqfits_res)
+    head(t(overdispersion_est))
+  @
+
+\noindent The cell-specific size effects is available using the \Rfunction{cell\_effect\_values}. Notice that the first element of each batch is 0 as the first cell in each batch is taken as the reference one.
+    
+  <<CellEffects>>=
+    cell_effects_est <- cell_effect_values(BUSseqfits_res)
+    head(cell_effects_est[[1]])
+  @
+  
+  \noindent \Rfunction{celltype\_mean\_expression} function provides the estimated cell-type-specific mean expression levels. The estimates remove the technical artifacts, including the location batch effects and the cell-spcific global effects, but retain the biological features for each cell type. Moreover, the cell type effects can be obtained by the \Rfunction{celltype\_effects} function. Notice that the first cell type is taken as the baseline cell type implying all zeros in the first column of \Robject{celltype\_effects\_est}. \\
+  
+  <<CelltypeEffects>>=
+    celltype_mean_expression_est <- celltype_mean_expression(BUSseqfits_example)
+    head(celltype_mean_expression_est)
+    
+    celltype_effects_est <- celltype_effects(BUSseqfits_res)
+    head(celltype_effects_est)
+  @
+  \section{Intrinsic Gene Identification}
+  The intrinsic genes are the genes that differentiate cell types \cite{huo2016meta}. More specifically, a gene is an intrinsic gene if the gene is differentially expressed in at least one cell type compared with the first cell type. We use \Rfunction{intrisic\_genes\_BUSseq} to identify the intrinsic genes by controlling the false discovery rate (FDR). In the simulated dataset, we set the first 250 genes as intrinsic genes, whereas the other genes have the same mean expression levels in all cells.\\
+  
+  <<IG>>=
+    #obtain the intrinsic gene indicators
+    intrinsic_gene_indices <- intrinsic_genes_BUSseq(
+                                            BUSseqfits_res, 
+                                            fdr_threshold =  0.05)
+    
+    #The estimated FDR, the first 250 genes are known intrinsic 
+    #genes in the simulation setting.
+    false_discovery_ind <- !(intrinsic_gene_indices %in% 1:250)
+    fdr_est <- sum(false_discovery_ind)/length(intrinsic_gene_indices)
+    fdr_est
+  @
+    
+    \noindent Therefore, the true FDR is \Sexpr{fdr_est} less than the estimated FDR, 0.05.
+    
+    
+  \section{Corrected Read Count Data and Visualization}
+  The function \Rfunction{BUSseq\_MCMC} not only conducts MCMC sampling and posterior inference, but also imputes the missing data caused by dropout events and corrects batch effects. The function \Rfunction{corrected\_read\_counts} calculates the corrected read count data of a \Robject{BUSseqfits} object. The message is a reminder of the output format, and the output is a \Robject{CountData} object. The \Rfunction{summary} command shows the number of batches, genes and cells in each batch.\\ 
+
+  <<adjusted>>=
+    corrected_countdata <- corrected_read_counts(BUSseqfits_res)
+    class(corrected_countdata)
+    summary(corrected_countdata)
+  @
+  
+  \noindent Subsequently, we can compare the raw count data that suffer from batch effects and dropout events, the inferred true expression levels after imputing dropout events, and the corrected count data which remove the batch effects and impute the dropout events. The function \Rfunction{raw\_read\_counts} and \Rfunction{imputed\_read\_counts} gives the raw and imputed read count data of a \Robject{BUSseqfits} object, respectively. The outputs of them are also a \Robject{CountData} object.\\
+  
+    <<RawandImputed>>=
+    raw_countdata <- raw_read_counts(BUSseqfits_res)
+    imputed_countdata <- imputed_read_counts(BUSseqfits_res)
+  @
+  
+  \noindent The function \Rfunction{heatmap\_data\_BUSseq} plots the heatmap for the count data across batches for a \Robject{CountData} object. The images are saved in the local folder according to the argument \Robject{image\_dir}. The image name can be modified by the argument \Robject{project\_name}. The user can specify the argument \Robject{gene\_ind\_set}, which is a vector of gene indices, selecting the genes to be displayed in the heatmap.\\
+
+  <<visualize1>>=
+    #generate the heatmap of raw read count data
+    heatmap_data_BUSseq(raw_countdata, 
+                            project_name = "BUSseq_raw_allgenes",
+                            image_dir = "./heatmap")
+    
+    #display only the first 100 genes in the heatmap
+    heatmap_data_BUSseq(raw_countdata, 
+                            gene_set = 1:100,
+                            project_name = "BUSseq_raw_100genes",
+                            image_dir = "./heatmap")
+  @
+  \begin{figure}[!htbp]
+    \centering
+  \includegraphics[width=.45\textwidth]{heatmap/BUSseq_raw_allgenes_log1p_data.png}
+  \includegraphics[width=.45\textwidth]{heatmap/BUSseq_raw_100genes_log1p_data.png}
+  \caption{The heatmap of the raw count data of all genes and the first 100 genes.}
+  \end{figure}
+  <<visualize2>>=
+    #generate the heatmap of imputed read count data
+    heatmap_data_BUSseq(imputed_countdata, 
+                            project_name = "BUSseq_imputed_allgenes",
+                            image_dir = "./heatmap")
+    #generate the heatmap of corrected read count data
+    heatmap_data_BUSseq(corrected_countdata, 
+                            project_name = "BUSseq_corrected_allgenes",
+                            image_dir = "./heatmap")
+  @
+  \begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=.45\textwidth]{heatmap/BUSseq_imputed_allgenes_log1p_data.png}
+    \includegraphics[width=.45\textwidth]{heatmap/BUSseq_corrected_allgenes_log1p_data.png}
+    \caption{The heatmap for the imputed and corrected count data of all genes.}
+  \end{figure}
+  \noindent In all these heatmaps, the top bar indicates the batch origin for each cell. Cells under the same color are from the same batch. The batch effects present in the raw data are correctly removed in the corrected count data, and only the biological variabilities are kept. We can also only display the identified intrinsic genes in the corrected count data by setting the argument \Robject{gene\_set} as \Robject{intrinsic\_gene\_indices}.
+  
+    <<visualize3>>=
+    #Only show the identified intrinsic genes
+    heatmap_data_BUSseq(corrected_countdata, 
+                            gene_set = intrinsic_gene_indices,
+                            project_name = "BUSseq_corrected_intrinsic_genes",
+                            image_dir = "./heatmap")
+  @
+  \begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=.8\textwidth]{heatmap/BUSseq_corrected_intrinsic_genes_log1p_data.png}
+    \caption{The heatmap for the corrected count data of identified intrinsic genes.}
+  \end{figure}
+  
+  \section{Model Selection using BIC}
+  If we have no prior knowledge about the cell type number, we can vary the argument \Robject{n.celltypes} in the function \Rfunction{BUSseq\_MCMC}, e.g., from 2 to 10 and identify the underlying true cell type number K as the one that achieves the minimal BIC. \\
+  
+  \noindent The user can obtain the BIC value from the \Robject{BUSseqfits\_res} by the \Rfunction{BIC\_BUSseq}.\\
+  
+  <<bic>>=
+     BIC_val <- BIC_BUSseq(BUSseqfits_res)
+  @
+    
+    \noindent In this example, the underlying true number of cell types is four. For an illustration, we vary the \Robject{n.celltypes} from 2 to 6.
+   <<selection>>=
+      BIC_values <- NULL
+   for(k in 2:6){
+      BUSseqfits_temp <- BUSseq_MCMC(ObservedData = CountData, n.celltypes = k, 
+                                   n.iterations = 500, working_dir = ".", 
+                                   showIteration = FALSE, seed = 123)
+      BIC_values <- c(BIC_values, BIC_BUSseq(BUSseqfits_temp))
+   }
+   plot(2:6, BIC_values, xlab="cell type number", ylab="BIC", main="BIC plot", type="b")
+   @
+    
+    \noindent The BIC attains the minimum at \Robject{n.celltypes}=4, thus correctly recovering the true cell type number.
+  
+  \bibliography{user_guide}
+  \end{document}

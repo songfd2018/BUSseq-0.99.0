@@ -1,0 +1,13 @@
+useDynLib(BUSseq, .registration=TRUE)
+exportPattern("^[[:alpha:]]+")
+S3method(print, BUSseqfits)
+S3method(summary, BUSseqfits)
+S3method(print, CountData)
+S3method(summary, CountData)
+import("bigmemory")
+import("gplots")
+importFrom("methods", "is")
+importFrom("stats", "pnbinom", "qnbinom", "rbinom", "rmultinom","runif", "sd", "hclust")
+importFrom("utils", "write.table")
+importFrom("grDevices", "colorRampPalette", "dev.off", "png")
+
