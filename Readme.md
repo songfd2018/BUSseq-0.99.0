@@ -20,7 +20,7 @@ install_github("songfd2018/BUSseq")
 Please refer to the vignetee for detailed function instructions using
 
 ```
-browseVignettes("BUScorrect")
+browseVignettes("BUSseq")
 ```
 
 ## References
