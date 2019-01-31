@@ -16,16 +16,11 @@
 
 using namespace std;
 /* get the list element named str, or return NULL */
-extern "C" {
-  
+extern "C"{
   //function statement
   SEXP getListElement(SEXP list, const char* str);
   
   //sampler
-  double rPolyaGamma(double h, double psi, double TRUN);
-  double PieceCoeff(int n, double x);
-  double PieceCoeff2(double h, double x, double t);
-  double PieceCoeffLeft(double h, double x);
   void rdirichlet(double* xi, int k, double* rn);
   int rcate(double* prob, int k);
   
@@ -99,17 +94,7 @@ extern "C" {
   void _update_pi(int _B, int *_Nb, int _K,
                   double _xi,//prior
                   int *_w,//parameter
-                  double *_pi);//to be updated
-  
-  void _assign_subtype_effect(int _B, int _N, int _G,
-                              double *_ptau0, double _tau1,//hyperparameter
-                              double *_alpha, double *_nu, double _delta, double *_phi,
-                              int *X, //observed data
-                              int _k, int _b, int _ind_n,
-                              double *_beta, int *L);
-  
-  void _count_subtype(int _B, int *_Nb,
-                      int *_w, int *_count_w);    
+                  double *_pi);//to be updated   
   
   //function content
   SEXP getListElement(SEXP list, const char* str){
@@ -121,206 +106,6 @@ extern "C" {
         break;
       }
       return elmt;
-  }
-  
-  //piecewise coefficients a_n(x)
-  double PieceCoeff(int n, double x) {
-    double res;
-    if (x < 0.64) {
-      res = PI * (n + 0.5)*pow(2.0 / PI / x, 1.5)*exp(-2 * pow((n + 0.5), 2.0) / x);
-    }
-    else {
-      res = PI * (n + 0.5)*exp(-pow((n + 0.5)*PI, 2.0) / 2.0 * x);
-    }
-    return res;
-  }
-  
-  //piecewise coefficients a_n(x)
-  double PieceCoeff2(double h, double x, double t) {
-    double res;
-    if (x < t) {
-      res = pow(2.0, h) * h / sqrt(2.0 * PI * pow(x, 3)) * exp(-pow(h, 2.0) / 2.0 / x);
-    }
-    else {
-      res = pow(PI / 2.0, h / 2.0) * pow(x, h - 1.0) * exp(-pow(PI, 2.0) / 8.0*x) / tgamma(h);
-    }
-    return res;
-  }
-  
-  //piecewise coefficients a_n(x)
-  double PieceCoeffLeft(double h, double x) {
-    double res;
-    res = pow(2, h)*h / sqrt(2 * PI * pow(x, 3))*exp(-pow(h, 2) / 2 / x);
-    return res;
-  }
-  
-  //Polya Gamma sampling PG(1,psi)
-  double rPolyaGamma(double h, double psi, double TRUN){
-    double z = fabs(psi / 2.0);
-    double lambda_z = pow(PI, 2.0) / 8.0 + pow(z, 2.0) / 2.0;
-    
-    //double quan1 = 1.0 / sqrt(TRUN)*(TRUN*z - 1);
-    //double quan2 = -1.0 / sqrt(TRUN)*(TRUN*z + 1);
-    
-    double quan1 = 1.0 / sqrt(TRUN)*(TRUN*z - h);
-    double quan2 = -1.0 / sqrt(TRUN)*(TRUN*z + h);
-    
-    //pnorm(x, mean, sd, lower.tail, log.p)
-    //double cdf_ivgau = pnorm(quan1, 0, 1, 1, 0) + exp(2 * z + pnorm(quan2, 0, 1, 1, 1));
-    //double log_qbp = log(2.0) - z + log(cdf_ivgau) - log(PI) + log(2.0) + log(K) + K * TRUN;
-    
-    double cdf_ivgau = pnorm(quan1, 0, 1, 1, 0) + exp(2 * h * z + pnorm(quan2, 0, 1, 1, 1));
-    double log_cdf_gam = pgamma(TRUN, h, 1/lambda_z, 0, 1);//requested to be verified log(1-CDF) of gamma(TRUN|h,scale = 1/lambda_z)
-    
-    double log_p = h * (log(2.0) - z) + log(cdf_ivgau);
-    double log_q = h * (log(PI) - log(2.0) - log(lambda_z)) + log_cdf_gam;
-    
-    double log_qbp = log_p - log_q;
-    
-    //Rprintf("The log ratio of q divided by p is %f\n", log_qbp);
-    
-    double temp;
-    
-    
-    while (true) {
-      double u = runif(0, 1);
-      
-      if (u < 1 / (1 + exp(log_qbp))) {
-        //Truncated Gamma(h, lambda_z)I(x>t)
-        if (h == 1) {
-          //Rprintf("sample from truncated exponential distribution.\n");
-          temp = TRUN + rexp(1) / lambda_z;
-        }
-        else {
-          bool go_gam = true;
-          //Rprintf("sample from truncated gamma distribution.\n");
-          while (go_gam) {
-            double temp2; //sample from Gamma(h,1)I(z>lambda_zt) x= z/lambda_z
-            double s = TRUN * lambda_z;
-            double mu_best = ((s - h) + sqrt(pow(s - h, 2.0) + 4 * s)) / (2 * s);
-            double gamtrun_a = 1 - mu_best;
-            double gamtrun_b = log(gamtrun_a / (h - 1));
-            temp2 = s + rexp(1) / mu_best;
-            double e2 = rexp(1);
-            if (e2 > gamtrun_a * temp2 - (h - 1) * (1 + log(temp2) + gamtrun_b)) {
-              temp = temp2 / lambda_z;
-              go_gam = false;
-            }
-          }
-          
-        }
-        
-      }
-      else {
-        
-        if (TRUN < h / z) {
-          bool go_ivgau = true;
-          //Rprintf("sample from truncated inuerse Gaussian distribution.\n");
-          while (go_ivgau) {
-            
-            bool go_next = true;
-            while (go_next) {
-              double e1 = rexp(1);
-              double e2 = rexp(1);
-              if (pow(e1, 2) < 2 * e2 / TRUN * pow(h, 2)) {
-                temp = TRUN / pow(h + TRUN / h * e1, 2);
-                go_next = false;
-              }
-            }
-            double w = runif(0, 1);
-            double alp = exp(-pow(z * h, 2) / 2 * temp);
-            if (w < alp) {
-              go_ivgau = false;
-              temp = temp * pow(h, 2);
-            }
-          }
-        }
-        else {
-          bool go_chi = true;
-          //Rprintf("sample from truncated Chi-square distribution.\n");
-          
-          while (go_chi) {
-            double temp2 = pow(rnorm(0, 1), 2);
-            double muy = temp2 / z / h;//mu*y
-            temp = 1 / z / h + muy / z / h / 2.0 - sqrt(4.0 * muy + pow(muy, 2)) / z / h / 2.0;
-            double w = runif(0, 1);
-            if (w > 1.0 / (1.0 + z * h * temp)) {
-              temp = 1.0 / temp / pow(z * h, 2);
-            }
-            if (temp < TRUN / pow(h, 2)) {
-              temp = temp * pow(h, 2);
-              go_chi = false;
-            }
-          }
-        }
-      }
-      
-      //Rprintf("X is sampled as %f.\n", temp);
-      
-      double v = runif(0, 1);
-      int n_s = 0;
-      if (h == 1) {
-        double S = PieceCoeff(n_s, temp);
-        double y = S * v;
-        
-        bool go = true;
-        //Rprintf("Devroye sampler starts\n");
-        while (go) {
-          n_s++;
-          /*
-          Rprintf("n.s: %d\n",n_s);
-          Rprintf("y: %f\n", y);
-          Rprintf("S: %f\n", S);
-          */
-          if (n_s % 2 == 1) {
-            S = S - PieceCoeff(n_s, temp);
-            //Rprintf("S when n_s is odd: %f\n", S);
-            if (y < S) {
-              //Rprintf("Devroye sampler finishes.\n");
-              return temp / 4;
-              //Rprintf("Devroye sampler continues.\n");
-            }
-          }
-          else {
-            S = S + PieceCoeff(n_s, temp);
-            if (y > S) go = false;
-          }
-        }
-      }
-      else {
-        //iteratively calculate a_n^L
-        double Sproporsal = PieceCoeff2(h, temp, TRUN);//a_0(x|h)
-        double y = Sproporsal * v;// if y<f(x) accept, otherwise reject.
-        double axh = PieceCoeffLeft(h, temp);//a^L_0(x|h)
-        double S = axh;//S^L_0(x|h)
-        double CoeffRatio = (h + 2) * exp(-2 * (h + 1) / temp);//a^L_1(x|h)/a^L_0(x|h)
-        while (CoeffRatio > 1) {
-          n_s++;//n
-          axh = axh * CoeffRatio;//a^L_n(x|h)
-          S = S + pow(-1, n_s)*axh;//S^L_n(x|h)
-          CoeffRatio = (n_s + h) / (n_s + 1)*(1 + 2 / (2 * n_s + h))*exp(-2 * (2 * n_s + h + 1) / temp);//a_n+1/a_n
-        }
-        bool go = true;
-        while (go) {
-          n_s++;//n
-          if (n_s % 2 == 1) {
-            axh = axh * CoeffRatio;//a_n(x|h)
-            S = S - axh;//S_n(x|h);
-            CoeffRatio = (n_s + h) / (n_s + 1)*(1 + 2 / (2 * n_s + h))*exp(-2 * (2 * n_s + h + 1) / temp);//a_n+1/a_n
-            if (y < S) {
-              return temp / 4;
-            }
-          }
-          else {
-            axh = axh * CoeffRatio;//a_n(x|h)
-            S = S + axh;//S_n(x|h);
-            CoeffRatio = (n_s + h) / (n_s + 1)*(1 + 2 / (2 * n_s + h))*exp(-2 * (2 * n_s + h + 1) / temp);//a_n+1/a_n
-            if (y > S)	go = false;
-          }
-        }
-      }
-      
-    }
   }
   
   //Sample from Dirichlet distribution
@@ -503,75 +288,6 @@ extern "C" {
         _gamma[b + _B] = gamma_iter[1];
       }
     }
-    /*
-    //PG gibbs sampling for omega
-    int ind;
-    int ind_n = 0; //index the row of (b,i)	
-    double chi;
-    
-    for (int b = 0; b < _B; b ++){
-    for(int i = 0; i < _Nb[b]; i ++){
-    for(int j = 0; j < _G; j ++){				
-    ind = ind_n + j * _N;
-    //Rprintf("b = %d, i = %d, j = %d\n",b,i,j);
-    chi = _gamma[b] + _gamma[b + _B] * log(1+X[ind]);
-    _omega[ind] = rPolyaGamma(1, chi, 0.64);
-    }
-    ind_n = ind_n + 1;
-    }
-    }
-    //Rprintf("Finish %d-th Gibbs sampling of latent variable.\n", iter + 1);
-    
-    //update gamma
-    //prior
-    ind_n = 0;
-    for(int b = 0; b < _B; b ++){
-    double mu_gamma[2] = {0.0 , 0.0};
-    double sigma_gamma[3];
-    
-    sigma_gamma[0] = _sigma_z[0];
-    sigma_gamma[1] = 0.0;
-    sigma_gamma[2] = _sigma_z[1];
-    for (int i = 0; i < _Nb[b]; i++) {
-    for (int j = 0; j < _G; j++) {
-    ind = ind_n + j * _N;
-    
-    sigma_gamma[0] = sigma_gamma[0] + _omega[ind];
-    sigma_gamma[1] = sigma_gamma[1] + _omega[ind] * log(1+X[ind]);
-    sigma_gamma[2] = sigma_gamma[2] + _omega[ind] * pow(log(1+X[ind]), 2);
-    
-    double kap = Z[ind] - 0.5;
-    mu_gamma[0] = mu_gamma[0] + kap;
-    mu_gamma[1] = mu_gamma[1] + kap * log(1+X[ind]);
-    
-    }
-    ind_n = ind_n + 1;
-    }
-    
-    // sigma_gamma ^ -1 matrix inuerse
-    double det_sigma = sigma_gamma[0] * sigma_gamma[2] - pow(sigma_gamma[1], 2);
-    double tmp;
-    tmp = sigma_gamma[0] / det_sigma;
-    sigma_gamma[0] = sigma_gamma[2] / det_sigma;
-    sigma_gamma[1] = -sigma_gamma[1] / det_sigma;
-    sigma_gamma[2] = tmp;
-    
-    // sigma_gamma * mu_gamma matrix product
-    tmp = sigma_gamma[1] * mu_gamma[0] + sigma_gamma[2] * mu_gamma[1];
-    mu_gamma[0] = sigma_gamma[0] * mu_gamma[0] + sigma_gamma[1] * mu_gamma[1];
-    mu_gamma[1] = tmp;
-    
-    //bivariate normal
-    double n1 = rnorm(0, 1);
-    double n2 = rnorm(0, 1);
-    
-    _gamma[b] = n1 * sqrt(sigma_gamma[0]);
-    _gamma[b + _B] = _gamma[b] / sigma_gamma[0] * sigma_gamma[1] + n2 * sqrt((sigma_gamma[0] * sigma_gamma[2] - pow(sigma_gamma[1], 2)) / sigma_gamma[0]);
-    
-    _gamma[b] = _gamma[b] + mu_gamma[0];
-    _gamma[b + _B] = _gamma[b + _B] + mu_gamma[1];
-    }
-    */
   }
   
   //update alpha_g
@@ -868,8 +584,6 @@ extern "C" {
     
     double log_proposal, log_current;
     int w_proposal, w_current;
-    double log_post_pi[_K];
-    double post_pi[_K];
     double proposal_pi[_K];
     for (int k = 0; k < _K; k++) {
       proposal_pi[k]=1.0/_K;
@@ -903,38 +617,7 @@ extern "C" {
           temp_logmu = _alpha[j] + _beta[ind_beta] + _nu[ind_nu] + _delta[ind_n];
           log_current = log_current + _beta[ind_beta] * X[ind]; 
           log_current = log_current - (_phi[ind_nu] + X[ind]) * log(_phi[ind_nu] + exp(temp_logmu));
-          /*
-          if (Y[ind] > 0) {
-          ind_nu = b + j * _B;
-          ind_beta = j + w_proposal * _G;
-          temp_logmu = _alpha[j] + _beta[ind_beta] + _nu[ind_nu] + _delta[ind_n];
-          log_proposal = log_proposal + Y[ind] * temp_logmu - (_phi[ind_nu] + Y[ind]) * log(_phi[ind_nu] + exp(temp_logmu));
-          ind_beta = j + w_current * _G;
-          temp_logmu = _alpha[j] + _beta[ind_beta] + _nu[ind_nu] + _delta[ind_n];
-          log_current = log_current + Y[ind] * temp_logmu - (_phi[ind_nu] + Y[ind]) * log(_phi[ind_nu] + exp(temp_logmu));
-          }
-          else {
-          
-          ind_nu = b + j * _B;
-          ind_beta = j + w_proposal * _G;
-          //ind_mu = b + (j + w_proposal * _G) * _B;
-          
-          prob_y0 = exp(_gamma[b]) / (1 + exp(_gamma[b]));
-          temp_logmu = _alpha[j] + _beta[ind_beta] + _nu[ind_nu] + _delta[ind_n];
-          for (int x = 0; x < up; x++) {
-          prob_y0 = prob_y0 + 1 / (1 + exp(_gamma[b] + _gamma[b + _B] * x)) * exp(lgamma(_phi[ind_nu]+x)-lgamma(x+1)-lgamma(_phi[ind_nu])) * pow((exp(temp_logmu) / (_phi[ind_nu] + exp(temp_logmu))), x);
-          }
-          log_proposal = log_proposal + log(prob_y0) - _phi[ind_nu] * log(exp(temp_logmu) + _phi[ind_nu]);
-          
-          ind_beta = j + w_proposal * _G;
-          prob_y0 = exp(_gamma[b]) / (1 + exp(_gamma[b]));
-          temp_logmu = _alpha[j] + _beta[ind_beta] + _nu[ind_nu] + _delta[ind_n];
-          for (int x = 0; x < up; x++) {
-          prob_y0 = prob_y0 + 1 / (1 + exp(_gamma[b] + _gamma[b + _B] * x)) * exp(lgamma(_phi[ind_nu]+x)-lgamma(x+1)-lgamma(_phi[ind_nu])) * pow((exp(temp_logmu) / (_phi[ind_nu] + exp(temp_logmu))), x);
-          }
-          log_current = log_current + log(prob_y0) - _phi[ind_nu] * log(exp(temp_logmu) + _phi[ind_nu]);
-          }
-          */
+
         }
         double log_ratio;
         log_ratio = log_proposal - log_current;
@@ -944,12 +627,10 @@ extern "C" {
         
         _count_w[_w[ind_n]] = _count_w[_w[ind_n]] + 1;
         ind_n = ind_n + 1;
+      }
     }
   }
-    
-    //Rprintf("Finish %d-th MH sampling of w.\n", iter + 1);
-}
-  
+
   //update pi_bk
   void _update_pi(int _B, int *_Nb, int _K,
                   double _xi,//prior
@@ -970,124 +651,6 @@ extern "C" {
     }
   }
   
-  //switch subtype
-  void _switch_subtype(int _B, int *_Nb, int _N, int _G, int _K,
-                       double *_alpha, double *_beta,
-                       int *_w,
-                       int _k) {
-    
-    
-    int ind_beta, ind_n;
-    double beta_shift[_G];
-    
-    //switch the subtype k_nonempty and subtype 1
-    //alpha, beta_2, beta_3, ..., beta_{k_nonempty}, ..., beta_K
-    //alpha'=alpha + beta_{k_nonempty}, beta_2'=beta_2-beta_{k_nonempty}, beta_3'=beta_3-beta_{k_nonempty},..., beat_{k_nonempty}'-beta_{k_nonempty}, ... beta_K'=beta_K-beta_{k_nonempty}
-    
-    for (int j = 0; j < _G; j++) {
-      ind_beta = j + _k * _G;
-      beta_shift[j] = _beta[ind_beta];
-    }
-    
-    //alpha
-    for (int j = 0; j < _G; j++) {
-      _alpha[j] = _alpha[j] + beta_shift[j];
-    }
-    //beta
-    for (int k = 1; k < _K; k++) {
-      for (int j = 0; j < _G; j++) {
-        ind_beta = j + k * _G;
-        _beta[ind_beta] = _beta[ind_beta] - beta_shift[j];
-      }
-    }
-    for (int j = 0; j < _G; j++) {
-      ind_beta = j + _k * _G;
-      _beta[ind_beta] = -beta_shift[j];
-    }
-    
-    //w
-    ind_n = 0;
-    for (int b = 0; b < _B; b++) {
-      for (int i = 0; i < _Nb[b]; i++) {//update w_bi
-        if (_w[ind_n] == _k) {
-          _w[ind_n] = 0;
-        }
-        ind_n = ind_n + 1;
-      }
-    }
-    
-    
-  }
-  
-  //assign subtype effect for empty subtype
-  void _assign_subtype_effect(int _B, int _N, int _G,
-                              double *_ptau0, double _tau1,//hyperparameter
-                              double *_alpha, double *_nu, double _delta, double *_phi,
-                              int *X, //observed data
-                              int _k, int _b, int _ind_n,
-                              double *_beta, int *L) {
-    
-    
-    //updata beta_gk and L_gk for 50 iterations
-    int num_iter = 50;
-    int ind, ind_nu;
-    double beta_iter, logr;
-    for(int it = 0; it < num_iter; it ++){
-      //update L
-      for(int j = 0; j < _G; j++){
-        double log_rat = 0.0; //the ratio between L_gk = 1 and L_gk = 0
-        log_rat = log_rat + log(_ptau0[0]) - log(1 - _ptau0[0]);
-        log_rat = log_rat - log(_tau1)/2.0 + log(_ptau0[1])/2.0;
-        log_rat = log_rat - pow(_beta[j], 2) / 2.0 / _tau1 + pow(_beta[j], 2) / 2.0 / _ptau0[1];
-        L[j] = rbinom(1, 1 / (1 + exp(-log_rat)));
-      }
-      //update beta
-      for (int j = 0; j < _G; j++) {
-        //proposal
-        beta_iter = rnorm(_beta[j], 0.1);
-        logr = 0.0;
-        
-        //prior
-        if (L[j] == 1) {
-          logr = logr - pow(beta_iter, 2.0) / 2 / _tau1 + pow(_beta[j], 2.0) / 2 / _tau1;
-        }
-        else {
-          logr = logr - pow(beta_iter, 2.0) / 2 / _ptau0[1] + pow(_beta[j], 2.0) / 2 / _ptau0[1];
-        }
-        
-        ind = j * _N + _ind_n;
-        ind_nu = _b + j * _B;
-        
-        //numerator
-        logr = logr + beta_iter * X[ind] - (_phi[ind_nu] + X[ind]) * log(_phi[ind_nu] + exp(_alpha[j] + beta_iter + _nu[ind_nu] + _delta));
-        //denomerator
-        logr = logr - _beta[j] * X[ind] + (_phi[ind_nu] + X[ind]) * log(_phi[ind_nu] + exp(_alpha[j] + _beta[j] + _nu[ind_nu] + _delta));
-        
-        
-        //proposal
-        if (logr > log(runif(0, 1))) {
-          _beta[j] = beta_iter;
-        }
-        
-      }
-    }
-  }
-  
-  void _count_subtype(int _B, int *_Nb,
-                      int *_w, int *_count_w) {
-    
-    int ind_n = 0;
-    for (int b = 0; b < _B; b++) {
-      for (int i = 0; i < _Nb[b]; i++) {
-        
-        _count_w[_w[ind_n]] = _count_w[_w[ind_n]] + 1;
-        ind_n = ind_n + 1;
-      }
-    }
-  }
-  
-  //void _prob_y0(){}
-  
   /* Main MCMC function*/
   
   SEXP BZINBBUS(SEXP args) {
@@ -1103,8 +666,7 @@ extern "C" {
     int K = INTEGER(getListElement(args, "K"))[0];
     int* Nb = INTEGER(getListElement(args, "CNum"));
     int G = INTEGER(getListElement(args, "GNum"))[0];
-    //Rprintf("The number of Batches: %d\n", B);
-    //Rprintf("The number of Subtypes: %d\n", K);
+
     int N = 0;
     for (int b = 0; b < B; b++) {
       N = N + Nb[b];
@@ -1115,13 +677,6 @@ extern "C" {
     
     //load the indicator to control whether or not to update p and tau0
     int IND_UPDATE_PTAU0 = INTEGER(getListElement(args,"ind_update_ptau"))[0];
-    
-    //load the truncation for PG sampling
-    //double* trun = REAL(getListElement(args, "TRUN"));
-    
-    //double *cov = REAL(getListElement(args, "Cov"));
-    //int p = INTEGER(getListElement(args, "pcov"))[0];
-    //Rprintf("The number of cov: %d\n", p);
     
     // Intial value of paramter
     double* alpha = REAL(getListElement(args,"alpha.init"));
@@ -1175,8 +730,6 @@ extern "C" {
     double a_p = REAL(getListElement(args, "a.p"))[0];
     double b_p = REAL(getListElement(args, "b.p"))[0];
     double tau1 = REAL(getListElement(args, "tau1"))[0];
-    //double* d = REAL(getListElement(args, "d.init"));
-    //the form of d [d_1,d_2,,,,,d_N]
     
     //Rprintf("Input has finished.\n");
     
@@ -1224,14 +777,6 @@ extern "C" {
     SEXP w_post = PROTECT(allocVector(INTSXP, iter_num * N));
     nProtect++;
     
-    //record the latest sampling of dropout
-    //SEXP dropout = PROTECT(allocVector(INTSXP, N * G));
-    //nProtect++;
-    
-    //record the latest sampling of true read counts
-    //SEXP true_post = PROTECT(allocVector(INTSXP, iter_num * N * G));
-    //nProtect++;
-    
     //record the posterior sampling of p
     SEXP p_post = PROTECT(allocVector(REALSXP, iter_num));
     nProtect++;
@@ -1243,9 +788,6 @@ extern "C" {
     //record the posterior sampling of l
     SEXP ind_post = PROTECT(allocVector(INTSXP, iter_num * G * K));
     nProtect++;
-    
-    //SEXP likelihood = PROTECT(allocVector(REALSXP, 1));
-    //nProtect++;
     
     PROTECT(par_post = allocVector(VECSXP, 11));
     SET_VECTOR_ELT(par_post, 0 , alpha_post);
@@ -1264,27 +806,6 @@ extern "C" {
     
     //Rprintf("MCMC starts\n");
     GetRNGstate();
-    //index in N*G matrix, like y_{ij} z_{ij} omega_{ij} and delta_{ij}
-    //index in G*K matrix, like log_mu{jk}, beta_{jk}
-    //int index, index_n, index_mu, index_beta, index_nu;
-    //index for N * G
-    //index_n for N
-    //index_mu for B * G * K
-    //index_beta for beta G * K
-    //index_nu for nu, phi, B * G
-    
-    //PG latent vairables
-    //SEXP ome = PROTECT(allocVector(REALSXP, N * G));
-    //nProtect++;
-    //SEXP ome = PROTECT(allocVector(REALSXP, N * G));
-    //nProtect++;
-    //double* omega = REAL(ome);
-    
-    //SEXP del = PROTECT(allocVector(REALSXP, N * G));
-    //nProtect++;
-    
-    //double* omega = REAL(ome);
-    //double* delta = REAL(del);
     
     SEXP logmu = PROTECT(allocVector(REALSXP, N * G));
     nProtect++;
@@ -1294,45 +815,7 @@ extern "C" {
                   w, alpha, beta, nu, delta,//parameter
                   log_mu);//to be updated
     
-    double proposal_check[N];
-    for (int i = 0; i < N; i++) {
-      proposal_check[i] = 1.0 / N;
-    }
     int count_w[K];
-    
-    //Rprintf("Initial value has been set.\n");
-    
-    //Rprintf("Verifying part:\n");
-    //double tr = 1.92;
-    //double h = 1.91476;
-    //double z = 0;
-    //double lam_z =  pow(PI,2)/8 + pow(z,2)/2;
-    //Rprintf("log(pgamma(1.92|h=1.914796,rate = lambda_z)) = %f , lam_z = %f\n", pgamma(tr, h, 1/lam_z, 0, 1),lam_z);
-    
-    //debug the PG sampler
-    //int num = 5000;
-    //double sum_expomega = 0.0;
-    //double sum_expdelta = 0.0;
-    //double sum_exp2omega = 0.0;
-    //double sum_exp2delta = 0.0;
-    //double omega[num];
-    //for(int i = 0;i < num;i++){
-    //	double psi = 0.0;
-    //	delta[i] = rPolyaGamma(1.5,psi,trun[0]);
-    //	omega[i] = rPolyaGamma_pre(psi);
-    //
-    //	sum_expdelta = sum_expdelta + exp(-delta[i]);
-    //	sum_expomega = sum_expomega + exp(-omega[i]);
-    //	sum_exp2delta = sum_exp2delta + exp(-2.0 * delta[i]);
-    //	sum_exp2omega = sum_exp2omega + exp(-2.0 * omega[i]);
-    //
-    //}
-    //Rprintf("The mean exp(-1* delta) of PG sampling is %f\n",sum_expdelta/num);
-    //Rprintf("The mean exp(-1* omega) of PG sampling is %f\n",sum_expomega/num);
-    //Rprintf("The mean exp(-2* delta) of PG sampling is %f\n",sum_exp2delta/num);
-    //Rprintf("The mean exp(-2* omega) of PG sampling is %f\n",sum_exp2omega/num);
-    
-    //Rprintf("%d-th gamma0=%f, gamma1=%f, logmu0=%f\n",gamma[0],gamma[1],log_mu[0 + w[0] * G]);
     
     for (int iter = 0; iter < iter_num; iter++) {
       
@@ -1351,9 +834,6 @@ extern "C" {
                     gamma);//to be updated
       
       //Rprintf("Finish %d-th Gibbs sampling of gamma.\n", iter + 1);
-      //for(int b = 0; b < B; b ++){
-      //Rprintf("gamma %d 0 = %f, gamma %d 1 = %f.\n", b + 1, gamma[b], b + 1, gamma[b + B]);
-      //}	
       
       //update alpha_g by MH
       _update_alpha(B, Nb, N, G,//dimension
@@ -1430,48 +910,7 @@ extern "C" {
       for (int k = 0; k < K; k++) {
         count_w[k] = 0;
       }
-      /*
-      if(iter % 25 == 0){
-      Rprintf("Start counting cells in each subtype.\n");
-      _count_subtype(B, Nb,
-                     w, count_w);
-      for(int k = 0; k < K; k++){
-      Rprintf("There are %d cells in the subtype %d\n", count_w[k],k + 1);
-      }
-      Rprintf("Finish counting cells in each subtype.\n");
-      for (int k = 1; k < K; k++) {
-      if (count_w[k] == 0) {
-      int sel_i = rcate(proposal_check, N);
-      int index_n = sel_i;
-      int sel_b = 0;
-      while (sel_i > Nb[sel_b] - 1) {
-      sel_b = sel_b + 1;
-      sel_i = sel_i - Nb[sel_b];
-      }
-      
-      //update beta_gk and L_gk by the cell (b,i)
-      //initialize the beta_gk and L_gk
-      int index_beta, index_empty;
-      for(int j = 0;j < G; j++){
-      index_beta = j + w[index_n] * G;
-      index_empty = j + k * G;
-      beta[index_empty] = beta[index_beta];
-      Indicator[index_empty] = Indicator[index_beta];
-      }  
-      Rprintf("Subtype %d is empty.",k + 1);
-      
-      _assign_subtype_effect(B, N, G,
-                             ptau0, tau1,//hyperparameter
-      alpha, nu, *(delta + index_n), phi,
-      Trueread, //observed data
-      k, sel_b, index_n,
-      beta + k * G, Indicator + k * G);
-      
-      Rprintf("Finish sample subtype effects for %d-th subtype.\n",k + 1);
-      }
-      }
-      }
-      */
+
       //update w_bi
       for (int k = 0; k < K; k++) {
         count_w[k] = 0;
@@ -1488,20 +927,6 @@ extern "C" {
       for(int k = 0; k < K; k++){
         //Rprintf("There are %d cells in the subtype %d\n", count_w[k],k + 1);
       }
-      /*
-      if(count_w[0] == 0){
-      int k_nonempty = 1;//switch the first the subtype and the first nonempty subtype
-      while(count_w[k_nonempty] == 0){
-      k_nonempty = k_nonempty + 1;
-      }
-      Rprintf("Subtype %d will switch with the frist Subtype\n",k_nonempty + 1);
-      _switch_subtype(B, Nb, N, G, K,
-                      alpha, beta, 
-      w, 
-      k_nonempty);    
-      
-      }
-      */
       //Rprintf("Finish %d-th MH sampling of w.\n", iter + 1);
       
       //update log_mu
@@ -1565,17 +990,11 @@ extern "C" {
       //record tau0 1
       REAL(tau0_post)[iter] = ptau0[1];
       
-      //record x_big
-      //for (int q = 0; q < G * N; q++){
-      //	INTEGER(true_post)[iter * N * G + q] = *(Trueread + q);
-      //}
-      
       //record L_gk
       for (int q = 0; q < G * K; q++) {
         INTEGER(ind_post)[iter * G * K + q] = *(Indicator + q);
       }
       
-      //Rprintf("Finish %d iterations.\n", iter + 1);
       
     }
     
@@ -1749,9 +1168,8 @@ extern "C" {
     UNPROTECT(nProtect);
     
   }
-  
-  }
 
+}
 static const R_CallMethodDef CallEntries[] = {
   {"BZINBBUS",          (DL_FUNC) &BZINBBUS,          1},
   {"Cal_LogLike",       (DL_FUNC) &Cal_LogLike,       1},
