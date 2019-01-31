@@ -592,7 +592,7 @@ extern "C"{
     int ind, ind_nu, ind_beta;
     int ind_n = 0;
     double temp_logmu;
-    double prob_y0;
+
     
     //Rprintf("Start updating w_bi:\n");
     for (int b = 0; b < _B; b++) {
@@ -1113,67 +1113,11 @@ extern "C"{
     return Loglikelihood;
   }
   
-  SEXP Sample_X(SEXP args) {
-    int nProtect = 0;
-    //Rprintf("Input data.\n");
-    
-    // load list from R into Cpp 
-    // load observed data
-    int *Reads = INTEGER(getListElement(args, "Reads"));
-    //[Y_11,Y_21,...,Y_N1,Y_12,Y_22,...,Y_NG]
-    int B = INTEGER(getListElement(args, "BNum"))[0];
-    int K = INTEGER(getListElement(args, "K"))[0];
-    int* Nb = INTEGER(getListElement(args, "CNum"));
-    int G = INTEGER(getListElement(args, "GNum"))[0];
-    int N = 0;
-    for (int b = 0; b < B; b++) {
-      N = N + Nb[b];
-      //Rprintf("The number of Cells in %d-th batch: %d\n", b, Nb[b]);
-    }
-    int iter_num;
-    iter_num = INTEGER(getListElement(args, "n.iter"))[0];
-    
-    int* Dropout = INTEGER(getListElement(args, "z.init"));
-    int* Trueread = INTEGER(getListElement(args, "x.init"));
-    
-    // Values of paramter
-    double* alpha = REAL(getListElement(args, "alpha"));
-    double* beta = REAL(getListElement(args, "beta"));
-    double* nu = REAL(getListElement(args, "nu"));
-    double* delta = REAL(getListElement(args, "delta"));
-    double* gamma = REAL(getListElement(args, "gamma"));
-    double* phi = REAL(getListElement(args, "phi"));
-    int* w = INTEGER(getListElement(args, "w"));
-    
-    //Rprintf("Finish loading the posterior inference!\n");
-    
-    SEXP logmu = PROTECT(allocVector(REALSXP, N * G));
-    nProtect++;
-    double* log_mu = REAL(logmu);
-    _update_logmu(B, Nb, N, G,
-                  w, alpha, beta, nu, delta,//parameter
-                  log_mu);//to be updated
-    
-    //Rprintf("Start sampling X and Z.\n");
-    
-    for (int iter = 0; iter < iter_num; iter++) {
-      _update_zx(B, Nb, N, G,//dimension
-                 gamma, phi, log_mu,//parameter
-                 Reads, //observed data
-                 Dropout, Trueread);//latent variable to be updated
-      
-      //Rprintf("Finish the %d-th sampling for X and Z.\n",iter);
-    }
-    
-    UNPROTECT(nProtect);
-    
-  }
 
 }
 static const R_CallMethodDef CallEntries[] = {
   {"BZINBBUS",          (DL_FUNC) &BZINBBUS,          1},
   {"Cal_LogLike",       (DL_FUNC) &Cal_LogLike,       1},
-  {"Sample_X",          (DL_FUNC) &Sample_X,          1},
   {NULL, NULL, 0}
 };
 
