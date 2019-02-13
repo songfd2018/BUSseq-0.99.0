@@ -89,7 +89,7 @@ install_github("songfd2018/BUSseq", build_vignettes = TRUE) # install BUSseq
 or
 
 ```
-install.packages("/your/location/directory/BUSseq_0.99.6.tar.gz", repos = NULL, type = "source") # install BUSseq from zip file
+install.packages("/your/local/directory/BUSseq_0.99.6.tar.gz", repos = NULL, type = "source") # install BUSseq from zip file
 ```
 
 It takes approximately 30 seconds to install directly from Github and it costs 10 seconds to install the compiled package from a local directory. 
