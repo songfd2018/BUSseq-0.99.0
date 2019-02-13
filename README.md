@@ -96,7 +96,7 @@ It takes approximately 30 seconds to install directly from Github and it costs 1
 
 # Demo
 
-Please see the vignettes for the detailed instructions on how to use the package:
+Please find the pdf file for the detailed instructions on how to use the package by running the following codes in the `R` session:
 
 ```
 vignette("BUSseq_user_guide",package="BUSseq")  # view the vignettes
