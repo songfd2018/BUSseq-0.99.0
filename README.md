@@ -62,7 +62,7 @@ Users should install the following packages prior to installing `BUSseq`, from a
 install.packages(c('devtools', 'bigmemory', 'gplots', 'knitr'))
 ```
 
-which will install in about one minute on a recommended machine.
+which will install in about one minute.
 
 #### Package Versions
 
