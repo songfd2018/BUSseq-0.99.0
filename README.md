@@ -32,7 +32,7 @@ Here, the R package `BUSseq` fits an interpretable Bayesian hierarchical model--
 
 ## Hardware Requirements
 
-The `BUSseq` package works on a standard personal computer (PC). The runtimes reported below were generated on a Windows 10 operating system by a PC with 16 GB RAM and 2 cores of 3.4 GHz.
+The `BUSseq` package works on a standard personal computer (PC). The runtimes reported below were generated on an Ubuntu 18.04 operating system by a PC desktop with 8 GB RAM and 8 cores of 2.6 GHz.
 
 ## Software Requirements
 
@@ -50,9 +50,20 @@ Windows: Windows 10 Enterprise
 
 Before installing the `BUSseq` package, users should have installed `R` with version 3.5.0 or higher. For Windows system, the users should also install [`Rtools`](https://cran.r-project.org/bin/windows/Rtools/).
 
-#### Installing R version 3.5.2 on Windows
+#### Installing R version 3.5.2 on Ubuntu 18.04
 
-Please download and install [R-3.5.2 for Windows](https://cran.r-project.org/bin/windows/base/) onto your computer. It will take a few minutes.
+To install the latest stable version of R on Ubuntu 18.04, please follow these steps:
+
+```
+sudo apt install apt-transport-https software-properties-common
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9
+sudo add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/'
+sudo apt update
+sudo apt install r-base
+R –version
+```
+
+The installation will take a few minutes.
 
 #### Package dependencies
 
@@ -102,10 +113,13 @@ Please check the user's guide for the detailed instructions on how to use the pa
 vignette("BUSseq_user_guide",package="BUSseq")  # view the vignettes
 ```
 
-For a given number of cell types *K*, it takes about 6 minutes to run the analysis for the demo dataset. To select the optimal *K*, we need to compare the BIC values for different *K*s. In the vignettes, we enumerate *K* from 2 to 6. As a result, we need about 5 * 6 = 30 minutes. When we have a multi-core computer or a cluster, we can run BUSseq with different *K*s in parallel. In that case, with 5 cores, we can finish all the computation within 10 minutes.
+For a given number of cell types *K*, it takes about 3 minutes to run the analysis for the demo dataset. To select the optimal *K*, we need to compare the BIC values for different *K*s. In the vignettes, we enumerate *K* from 2 to 6. As a result, we need about 5 * 3 = 15 minutes. When we have a multi-core computer or a cluster, we can further run BUSseq with different *K*s in parallel. For the simulation study in our manuscript which consists of 10,000 genes and 600 cells, it takes 4.25 hours to run 3,000 iterations of the MCMC algorithm for a given K. 
+
 
 # Instructions for use
 Please follow the steps in the [BUSseq implementation](https://github.com/songfd2018/BUSseq_implementation) repository to reproduce all the results and figures in our [manuscript](https://www.biorxiv.org/content/10.1101/533372v1).
+
+BUSseq stores the MCMC samples onto the hard disk to reduce memory usage. For the  simulation dataset, mouse hematopoietic and human pancreatic studies in our manuscript, each takes 6~8 GB to save the MCMC samples. Please ensure that there is enough space on your hard disk before running the codes for reproduction.
 
 # Citation
 BUSseq manuscript is available from [bioRxiv](https://www.biorxiv.org/content/10.1101/533372v1). If you use BUSseq for your work, please cite our paper.
