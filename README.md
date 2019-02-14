@@ -1,4 +1,4 @@
-# Batch Effects Correction With Unknow Subtypes for scRNA-seq Data (BUSseq)
+# Batch Effects Correction With Unknown Subtypes for scRNA-seq Data (BUSseq)
 
 ## Contents
 
@@ -60,7 +60,7 @@ sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD
 sudo add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/'
 sudo apt update
 sudo apt install r-base
-R –version
+R version
 ```
 
 The installation will take a few minutes.
