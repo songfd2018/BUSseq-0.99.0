@@ -210,16 +210,16 @@ if(is(ObservedData, "list")){         #The input data format is list
   if(is.na(hyper_sd_delta)){
     hyper_sd_delta <- sqrt(5)
   }
-  if(is.na(hyper_var_gamma)){
+  if(any(is.na(hyper_var_gamma))){
     hyper_var_gamma <- c(3,3)
   }
-  if(is.na(hyper_phi)){
+  if(any(is.na(hyper_phi))){
     hyper_phi <- c(1,0.1)
   }
-  if(is.na(hyper_p)){
+  if(any(is.na(hyper_p))){
     hyper_p <- c(1,3)
   }
-  if(is.na(hyper_tau0)){
+  if(any(is.na(hyper_tau0))){
     hyper_tau0 <- c(1,0.1)
   }
   if(is.na(hyper_slab)){
@@ -329,12 +329,12 @@ if(is(ObservedData, "list")){         #The input data format is list
   x.init <- Read
   
   ###Set the empirical estiamtors as the prior for alpha and nu
-  if(is.na(hyper_mu_alpha)){
+  if(any(is.na(hyper_mu_alpha))){
     mu.a <- alpha.init
   }else{
     mu.a <- hyper_mu_alpha
   }
-  if(is.na(hyper_mu_nu)){
+  if(any(is.na(hyper_mu_nu))){
     mu.c<-apply(nu.init,1,mean)
   }else{
     mu.c <- hyper_mu_nu
