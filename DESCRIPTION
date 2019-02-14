@@ -2,7 +2,7 @@ Package: BUSseq
 Type: Package
 Title: Batch Effect Correction with Unknow Subtypes for scRNA-seq data
 Version: 0.99.6
-Date: 2019-01-31
+Date: 2019-02-14
 Author: Fangda Song, Ga Ming Chan and Yingying Wei
 Maintainer: Fangda Song <sfd1994895@gmail.com>
 Description: The Batch effect correction with Unknow Subtypes for scRNA-seq Data (BUSseq) is an interpretable Bayesian hierarchical model that closely follows the data-generating mechanism of scRNA-seq experiments. BUSseq can simultaneously correct batch effects, cluster cell types, impute missing data caused by dropout events, and detect differentially expressed genes without requiring a preliminary normalization step.
