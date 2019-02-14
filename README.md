@@ -14,19 +14,19 @@
 # Overview
 Single-cell RNA-sequencing (scRNA-seq) technologies enable the measurement of the transcriptome of individual cells, which provides unprecedented opportunities to discover cell types and understand cellular heterogeneity. Despite their widespread applications, single-cell RNA-sequencing (scRNA-seq) experiments are still plagued by batch effects and dropout events.
 
-One of the major tasks of scRNA-seq experiments is to identify cell types for a population of cells. Therefore, the cell type of each individual cell is always unknown and is the target of inference. However, most existing methods for batch effects correction, such as Combat space and the surrogate variable analysis (SVA), are designed for bulk experiments and require knowledge of the subtype information, which corresponds to cell type information for scRNA-seq data, of each sample a priori.
+One of the major tasks of scRNA-seq experiments is to identify cell types for a population of cells. Therefore, the cell type of each individual cell is always unknown and is the target of inference. However, most existing methods for batch effects correction, such as Combat and the surrogate variable analysis (SVA), are designed for bulk experiments and require knowledge of the subtype information, which corresponds to cell type information for scRNA-seq data, of each sample a priori.
   
-Here, the R package `BUSseq` fits an interpretable Bayesian hierarchical model---the Batch Effects Correction with Unknown Subtypes for scRNA seq Data(BUSseq)---to correct batch effects in the presence of unknown cell types. BUSseq is able to simultaneously correct batch effects, clusters cell types, and takes care of the count data nature, the overdispersion, the dropout events, and the cell-specific sequencing depth of scRNA-seq data. After correcting the batch effects with BUSseq, the corrected value can be used for downstream analysis as if all cells were sequenced in a single batch. BUSseq can integrate the read count matrices measured from different platforms and allow cell types to be measured in some but not all of the batches as long as the experimental design fulfills the conditions listed in our [manuscript](https://www.biorxiv.org/content/10.1101/533372v1).
+Here, the R package `BUSseq` fits an interpretable Bayesian hierarchical model---the Batch Effects Correction with Unknown Subtypes for scRNA seq Data (BUSseq)---to correct batch effects in the presence of unknown cell types. BUSseq is able to simultaneously correct batch effects, clusters cell types, and takes care of the count data nature, the overdispersion, the dropout events, and the cell-specific sequencing depth of scRNA-seq data. After correcting the batch effects with BUSseq, the corrected value can be used for downstream analysis as if all cells were sequenced in a single batch. BUSseq can integrate read count matrices obtained from different scRNA-seq platforms and allow cell types to be measured in some but not all of the batches as long as the experimental design fulfills the conditions listed in our [manuscript](https://www.biorxiv.org/content/10.1101/533372v1).
 
 # Repo Contents
 
-- [R](./R): `R` package code.
-- [data](./data): example data for the demo.
-- [inst/doc](./inst/doc): package pdf user's guide, and usage of the `BUSseq` package on a small example dataset.
-- [man](./man): package manual for help in R session.
+- [R](./R): `R` code.
+- [data](./data): the example data for the demo.
+- [inst/doc](./inst/doc): compiled user's guide and illustration of the applications of `BUSseq` package to the demo dataset.
+- [man](./man): help manual.
 - [src](./src): `C++` source code.
-- [tests](./tests): tests written using the `BUSseq` package.
-- [vignettes](./vignettes): `R` vignettes for R session html help pages.
+- [tests](./tests): sample code for the demo dataset.
+- [vignettes](./vignettes): source code for the user's guide.
 
 # System Requirements
 
@@ -62,11 +62,11 @@ Users should install the following packages prior to installing `BUSseq`, from a
 install.packages(c('devtools', 'bigmemory', 'gplots', 'knitr'))
 ```
 
-which will install in about one minute.
+The installation will take about one minute.
 
 #### Package Versions
 
-The `BUSseq` package functions require the above packages with the following versions, respectively:
+The `BUSseq` package depends on the above packages with the following versions, respectively:
 
 ```
 devtools: 2.0.1
@@ -96,16 +96,16 @@ It takes approximately 30 seconds to install directly from Github and it costs 1
 
 # Demo
 
-Please find the pdf file for the detailed instructions on how to use the package by running the following codes in the `R` session:
+Please check the user's guide for the detailed instructions on how to use the package by running the following code in the `R` session:
 
 ```
 vignette("BUSseq_user_guide",package="BUSseq")  # view the vignettes
 ```
 
-For a given number of cell types *K*, it takes about 6 minutes to run on the demo dataset. To select the optimal *K*, we need to compare the BIC values for different *K*s. In the vignettes, we enumerate *K* from 2 to 6. As a result, we need about 5 * 6 = 30 minutes. When we have a multi-core computer or a cluster, we can run BUSseq with different *K*s in parallel. In that case, with 5 cores, we can finish all the computation within 10 minutes.
+For a given number of cell types *K*, it takes about 6 minutes to run the analysis for the demo dataset. To select the optimal *K*, we need to compare the BIC values for different *K*s. In the vignettes, we enumerate *K* from 2 to 6. As a result, we need about 5 * 6 = 30 minutes. When we have a multi-core computer or a cluster, we can run BUSseq with different *K*s in parallel. In that case, with 5 cores, we can finish all the computation within 10 minutes.
 
 # Instructions for use
-Please follow the steps in the [BUSseq implementation](https://github.com/songfd2018/BUSseq_implementation) repository to reproduce all the results and figures of simulation and real data analysis.
+Please follow the steps in the [BUSseq implementation](https://github.com/songfd2018/BUSseq_implementation) repository to reproduce all the results and figures in our [manuscript](https://www.biorxiv.org/content/10.1101/533372v1).
 
 # Citation
 BUSseq manuscript is available from [bioRxiv](https://www.biorxiv.org/content/10.1101/533372v1). If you use BUSseq for your work, please cite our paper.
