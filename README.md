@@ -119,7 +119,7 @@ For a given number of cell types *K*, it takes about 3 minutes to run the analys
 # Instructions for use
 Please follow the steps in the [BUSseq implementation](https://github.com/songfd2018/BUSseq_implementation) repository to reproduce all the results and figures in our [manuscript](https://www.biorxiv.org/content/10.1101/533372v1).
 
-BUSseq stores the MCMC samples onto the hard disk to reduce memory usage. For the  simulation dataset, mouse hematopoietic and human pancreatic studies in our manuscript, each takes 6~8 GB to save the MCMC samples. Please ensure that there is enough space on your hard disk before running the codes for reproduction.
+BUSseq stores the MCMC samples onto the hard disk to reduce memory usage. For the  simulation dataset, the mouse hematopoietic dataset and the human pancreatic dataset in our manuscript, each takes 6~8 GB to save the MCMC samples. Please ensure that there is enough space on your hard disk before running the codes for reproduction.
 
 # Citation
 BUSseq manuscript is available from [bioRxiv](https://www.biorxiv.org/content/10.1101/533372v1). If you use BUSseq for your work, please cite our paper.
